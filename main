@@ -1,0 +1,97 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed May 11 21:10:54 2016
+
+@author: Mike
+"""
+import numpy as np
+import pylab as P
+
+#Generate the array of points. Stick it in a numpy array because I feel like
+#that might be a good idea?
+
+class point:
+    def __init__(self,x,y):
+        self.x = x
+        self.y = y
+    
+s = 290797
+pointslist = []
+
+for i in range(0,500):
+    s = (s*s) % 50515093
+    x = (s%2000) - 1000
+    s = (s*s) % 50515093
+    y = (s%2000) - 1000
+    newpoint = point(x,y)
+    pointslist.append(newpoint)   
+    
+
+#P.scatter([pt.x for pt in pointslist], [pt.y for pt in pointslist])
+
+"""
+We need:
+DONE > Function: given a triangle and a point, is the point inside the triangle?
+> Function: given a triangle, is it legal?
+> Function: area of triangle
+
+Then, depth first search: search until we have a maximal polygon, then get its area
+
+"""
+
+def point_outside_triangle(a,b,c,k):
+    #Returns 1 iff point k is outside or on abc AND abc is a triangle.
+    #Returns 0 iff point k is inside abc OR abc is a straight line.
+    
+    
+    #How do we know that? 
+    #iff k is on the same side of ab as c, etc, then k is inside abc.
+    #y(x1-x2) = (y1-y2)x + (y2x1-y1x2) is the eqn of a line.
+
+    outside = 0
+    
+    for (p,q,r) in [(a,b,c),(a,c,b),(b,c,a)]:
+       
+        #If r and k are on different sides of line pq, we know k is outside of pqr, so stop..
+        #nb: k lying on pq is the same as "outside" in the formulation of the question
+        if( r.y*(p.x-q.x) < r.x*(p.y-q.y) + (q.y*p.x - p.y*q.x) ):
+            if(k.y*(p.x-q.x) >= k.x*(p.y-q.y) + (q.y*p.x - p.y*q.x) ):
+                outside = 1
+                break
+        elif( r.y*(p.x-q.x) > r.x*(p.y-q.y) + (q.y*p.x - p.y*q.x) ):
+            if(k.y*(p.x-q.x) <= k.x*(p.y-q.y) + (q.y*p.x - p.y*q.x) ):
+                outside = 1
+                break
+        
+        #In the case that pqr is a straight line, none of these conditions will be tripped - 
+        #so the function will return that the point is inside the triangle, as desired. 
+        if outside == 1:
+            break
+        
+    return outside
+
+def triangle_convex_hole(a,b,c):
+    #Takes in triangle abc
+    #Returns 1 if abc is a convex hole, or 0 if not.
+    hole = 1
+    for k in pointslist:
+        if point_outside_triangle(a,b,c,k) == 0:
+            hole = 0
+            break
+
+    return convex
+    
+"""
+What's the best way to do this with polygons?
+Checking for hole-ness is easy enough: can e.g pick the first elt a, and see if abc, acd, ade,...
+are all triangular convex holes.
+
+------>>>>>    Checking for convexity? Then for adjacent trios pqr, q is on one side of pr and every other point is on the other side
+
+Is that sufficient? Suppose non-convex: then there's a line not inside the shape between points
+Then there's a line between vertices which isn't on the shape (WLOG: take points on the edge, and peturb edges slightly if points aren't already vertices)
+
+For this line, suppose inbetween our two vertices there's a point on either side of the line. Then we're done because the shape sides go back and forth across the boundary.
+If instead all points are on one side of the line, it must turn back on itself to get from A to B, so we're done.
+
+"""
