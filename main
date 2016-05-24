@@ -3,6 +3,8 @@
 Created on Wed May 11 21:10:54 2016
 
 @author: Mike
+
+NOTE THIS HAS BEEN SUPERCEDED BY A MUCH FASTER AND MORE INTERESTING VERSION! SEE "IMPROVEMENT".
 """
 import numpy as np
 import pylab as P
