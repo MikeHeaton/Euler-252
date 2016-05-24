@@ -1,0 +1,165 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon May 16 12:45:48 2016
+
+@author: Mike
+
+Improved version after some thoughts. With luck this will work!
+"""
+import math
+import numpy
+import pylab as P
+
+#Generate the list of points in the problem
+def generate_list():
+    point = []
+    s=290797
+    for i in range(0,500):
+        s = (s*s) % 50515093
+        x = (s%2000) - 1000
+        s = (s*s) % 50515093
+        y = (s%2000) - 1000
+        point.append((x,y)) 
+    return point
+
+def triangle_area(a,b,c):
+    #Takes in triangle abc
+    #Returns area of triangle using coordinate geometry formula (Google)
+    return abs(0.5 * ( point[a][0]*(point[b][1]-point[c][1]) + point[b][0]*(point[c][1]-point[a][1]) + point[c][0]*(point[a][1]-point[b][1])))
+
+"""
+PLAN
++ Take each starting edge by generating over i,j>i
++ Function: For an edge and two bounding angles, max point pmax, running total area:
+    + for each edge ab of the polygon, search over points > pmax to find vertices q which would work as a convex hole
+    + add area abq to area, update pmax if required, call function on each newly created edge
+    + if no points found, return and store area if it's the largest seen so far.
+"""
+
+def angle_find(a,b,c):
+    #Takes three points, returns the angle abc. 
+    #Always gives the non-reflex angle. Need to keep that in mind.
+    v1 = (point[b][0]-point[a][0],point[b][1]-point[a][1])
+    v2 = (point[b][0]-point[c][0],point[b][1]-point[c][1])
+    dotproduct = v1[0]*v2[0]+v1[1]*v2[1]
+    modv1 = math.sqrt(float(v1[0]*v1[0]+v1[1]*v1[1]))
+    modv2 = math.sqrt(float(v2[0]*v2[0]+v2[1]*v2[1]))
+
+    return math.acos(float(dotproduct) / (modv1*modv2))
+
+def is_a_candidate(a0,a,b,b0,p):
+    a0ab = angle_find(a0,a,b)
+    abb0 = angle_find(a,b,b0)
+    a_anglelimit = math.pi - a0ab  
+    b_anglelimit = math.pi - abb0
+    bap = angle_find(b,a,p)
+    a0ap = angle_find(a0,a,p)
+        
+    abp = angle_find(a,b,p)
+    b0bp = angle_find(b0,b,p)
+        
+    abaa0handedness = (point[b][0]-point[a][0])*(point[a0][1]-point[a][1])-(point[b][1]-point[a][1])*(point[a0][0]-point[a][0])
+    abaphandedness = (point[b][0]-point[a][0])*(point[p][1]-point[a][1])-(point[b][1]-point[a][1])*(point[p][0]-point[a][0])     
+        
+    if bap <= a_anglelimit and a0ap >= a0ab and abp <= b_anglelimit and b0bp >= abb0 and abaa0handedness*abaphandedness<=0:
+        if abaphandedness <= 0:
+            return [(bap,abp,p,-1)]
+        if abaphandedness > 0:
+            return [(bap,abp,p,1)]
+    else:
+        return []
+        #This deals with handedness and limits simultaneously.
+        
+
+def extend_poly(polylist):
+    nvertices = len(polylist)
+        
+    a = polylist[0]
+    b = polylist[-1]
+    a0 = polylist[1]
+    b0 = polylist[-2]
+    candidates = []
+    #a0,a,b,b0,pmax,area):
+    #the angle that the new point makes with a0a and bb0 has to be less than these bounds.
+    #Need to think about how to deal with handedness???
+    a0ab = angle_find(a0,a,b)
+    abb0 = angle_find(a,b,b0)
+    a_anglelimit = math.pi - a0ab  
+    b_anglelimit = math.pi - abb0
+
+    for p in set(range(0,len(point)))-set(polylist):
+        #If angle bap and abp are below the bounds, it's convex.
+        """bap = angle_find(b,a,p)
+        a0ap = angle_find(a0,a,p)
+        
+        abp = angle_find(a,b,p)
+        b0bp = angle_find(b0,b,p)
+        
+        abaa0handedness = (point[b][0]-point[a][0])*(point[a0][0]-point[a][0])-(point[b][1]-point[a][1])*(point[a0][1]-point[a][1])
+        abaphandedness = (point[b][0]-point[a][0])*(point[p][0]-point[a][0])-(point[b][1]-point[a][1])*(point[p][1]-point[a][1])     
+        
+        if bap <= a_anglelimit and a0ap >= a0ab and abp <= b_anglelimit and b0bp >= abb0 and abaa0handedness*abaphandedness<=0:
+            candidates.append([bap,abp,p])
+            #This deals with handedness and limits simultaneously.
+        
+        """
+        candidates = candidates + is_a_candidate(a0,a,b,b0,p)
+        #Now sort through the list of candidates, which are points within the triangle of convexity.
+        #Sort the list so that angle1 is always increasing; then we have a hole iff angle2 is decreasing,
+        #because if both angles to x are bigger than point y we've seen already, y will be inside triangle axb.
+    candidates.sort(key = lambda x: x[0])
+    #print([i[2] for i in candidates])
+    anglemax = b_anglelimit
+    solutions = []
+    for i in range(0,len(candidates)):
+            if candidates[i][1] <= anglemax:
+                solutions.append(candidates[i][2])
+                anglemax = candidates[i][1]
+    
+    solutionvals = [(i,extend_poly(polylist+[i])) for i in solutions]
+    solutionvals.sort(key = lambda x:x[1], reverse = True)
+    if solutionvals == []:
+          
+        area = 0
+        for i in range(1,len(polylist)):
+            area = area + triangle_area(polylist[0],polylist[i],polylist[(i+1)%len(polylist)],)
+        print(polylist,area)
+        return area
+    return solutionvals[0][1]
+    
+    
+
+def overlay_print(polygon=[],lim = "default"):
+    fig = P.scatter([p[0] for p in point],[p[1] for p in point],s=1)
+    if(polygon != []):
+        if lim=="default":
+            xmin = min([point[p][0] for p in polygon])
+            xmax = max([point[p][0] for p in polygon])
+            ymin = min([point[p][1] for p in polygon])
+            ymax = max([point[p][1] for p in polygon])
+        else:
+            xmin = lim[0][0]
+            xmax = lim[0][1]
+            ymin = lim[1][0]
+            ymax = lim[1][1]
+        
+        P.xlim(xmin,xmax)
+        P.ylim(ymin,ymax)
+        P.margins(0.1,0.1)
+        
+        for i in range(0,len(point)):
+            if xmin <= point[i][0] <= xmax and ymin <= point[i][1] <= ymax:
+                P.text(point[i][0], point[i][1], str(i), color="red", fontsize=8)
+
+        
+        #P.plot([point[p][0] for p in polygon]"""+[point[polygon[0]][0]]""",[point[p][1] for p in polygon]"""+[point[polygon[0]][1]]""")
+        P.plot([point[p][0] for p in polygon]+[point[polygon[0]][0]],[point[p][1] for p in polygon]+[point[polygon[0]][1]])
+    else:
+        P.xlim(-1000,1000)
+        P.ylim(-1000,1000)
+        
+        """OK so extend_poly seems to work. What next? I've got to think, how does this fit into the algo?
+        ACtually I think it's ok. So I was worrying because, after extending one side, it blocks off how well you can extend other sides.
+        But the DFS method means every possible polygon will be built up at some point, in vertex order.
+        Next: turn Extend_poly (rename extend_side?) into a proper DFS algorithm. If you get stuck, cf what you did with Sudoku.
+"""
